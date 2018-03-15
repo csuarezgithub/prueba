@@ -1,0 +1,42 @@
+input {
+   exec {
+      command => "/root/openstack/test.sh https://compute.az1.dc1.clarochile.org:443//v2.1/servers/d81fdd13-ce5d-4033-980b-1a2c6139cc73/diagnostics"
+      interval => 300
+      type => "cloud-server-stats"
+   }
+}
+
+filter {
+	if [type] == "cloud-server-stats" {
+		json {
+                	source => "message"
+                     }
+		mutate {
+			add_field => { "hostname" => "compute.az1.dc1.clarochile.org" }
+			add_field => { "server" => "d81fdd13-ce5d-4033-980b-1a2c6139cc73" }
+			}
+		ruby {
+			#code => 'event.set("[pct-mem-used]",  1 - (event.get("[memory-available]") / event.get("[memory-actual]") ) )'
+			code => 'event.set("[pct-mem-used]", 
+					1-event.get("[memory-available]").to_d/event.get("[memory-actual]").to_d )'
+			remove_field => ["host"]
+		     }	
+	}
+	
+}
+
+output {
+  stdout { codec => rubydebug }
+ 
+   elasticsearch {
+      "codec"         => "json_lines"
+      "user"          => "elastic"
+      "password"      => "Elk_2017"
+      "hosts"         => [ "http://claroprod974:9200", "http://claroprod975:9200", "http://claroprod976:9200" ]
+      #"password"      => "CLA40T3S7"
+      #"hosts"         => [ "https://10.38.97.29:9200" ]
+      #"cacert"	      => "/etc/logstash/cert/ca.crt"
+      "index"         => "cloud-server-stats-%{+YYYYMM}" 
+      "document_id"   => "%{server}-%{@timestamp}"
+   }
+}

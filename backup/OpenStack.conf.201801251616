@@ -1,0 +1,176 @@
+input {
+   exec {
+        command => "/root/openstack/test.sh https://compute.az1.dc1.clarochile.org:443/v2.1/servers/d81fdd13-ce5d-4033-980b-1a2c6139cc73/diagnostics"
+        interval => 300
+        type => "cloud-server-stats"
+   }
+   exec {
+        command => "/root/openstack/test.sh https://compute.az1.dc1.clarochile.org/v2.1/os-hypervisors/statistics"
+        interval => 300
+        type => "os-hypervisors-stats"
+   }
+}
+
+filter {
+        json {
+                source => "message"
+              }
+
+        if [type] == "cloud-server-stats" {
+			mutate {
+				add_field => { "server" => "d81fdd13-ce5d-4033-980b-1a2c6139cc73" }
+				add_field => { "hostname" => "compute.az1.dc1.clarochile.org" }
+				remove_field => ["host"]
+			}
+			
+			ruby {
+				code => 'event.set("[pct-mem-used]",
+								1-event.get("[memory-available]").to_d/event.get("[memory-actual]").to_d )'
+			}
+        }
+		
+		else if [type] == "os-hypervisors-stats" {
+		    mutate {
+            	add_field => { "hostname" => "compute.az1.dc1.clarochile.org" }
+				remove_field => ["host"]
+            }       
+
+			ruby {
+				 code => 'event.set("[pct_used_disk_gb]",
+								event.get("[local_gb_used]").to_d/event.get("[local_gb]").to_d );
+						event.set("[pct_free_disk_gb]",
+								1-event.get("[pct_used_disk_gb]"));
+						event.set("[pct_memory_mb_used]",
+								event.get("[memory_mb_used]").to_d/event.get("[memory_mb]").to_d );
+						event.set("[pct_memory_mb_free]",
+								1-event.get("[pct_memory_mb_used]"));
+						event.set("[pct_vcpus_used]",
+								event.get("[vcpus_used]").to_d/event.get("[vcpus]").to_d );
+						event.set("[pct_vcpus_free]",
+								1-event.get("[pct_vcpus_used]"));' 
+			}
+		}
+
+}
+
+output {
+        if [type] == "os-hypervisors-stats" {
+                stdout { codec => rubydebug }
+        }
+
+		if [type] == "cloud-server-stats" {
+			elasticsearch {
+				"codec"         => "json_lines"
+				"user"          => "elastic"
+				"password"      => "Elk_2017"
+				"hosts"         => [ "http://claroprod974:9200", "http://claroprod975:9200", "http://claroprod976:9200" ]
+				#"password"      => "CLA40T3S7"
+				#"hosts"         => [ "https://10.38.97.29:9200" ]
+				#"cacert"       => "/etc/logstash/cert/ca.crt"
+				"index"         => "cloud-server-stats-%{+YYYYMM}"
+				"document_id"   => "%{server}-%{@timestamp}"
+			}
+		}
+		
+		if [type] == "os-hypervisors-stats" {
+			elasticsearch {
+				"codec"         => "json_lines"
+				"user"          => "elastic"
+				"password"      => "Elk_2017"
+				"hosts"         => [ "http://claroprod974:9200", "http://claroprod975:9200", "http://claroprod976:9200" ]
+				#"password"      => "CLA40T3S7"
+				#"hosts"         => [ "https://10.38.97.29:9200" ]
+				#"cacert"       => "/etc/logstash/cert/ca.crt"
+				"index"         => "cloud-os-hypervisors-stats-%{+YYYYMM}"
+				"document_id"   => "hypervisor-stats-%{@timestamp}"
+			}
+		}
+}
+
+input {
+   exec {
+        command => "/root/openstack/test.sh https://compute.az1.dc1.clarochile.org:443/v2.1/servers/d81fdd13-ce5d-4033-980b-1a2c6139cc73/diagnostics"
+        interval => 300
+        type => "cloud-server-stats"
+   }
+   exec {
+        command => "/root/openstack/test.sh https://compute.az1.dc1.clarochile.org/v2.1/os-hypervisors/statistics"
+        interval => 300
+        type => "os-hypervisors-stats"
+   }
+}
+
+filter {
+        json {
+                source => "message"
+              }
+        mutate {
+                add_field => { "hostname" => "compute.az1.dc1.clarochile.org" }
+				remove_field => ["host"]
+                }       
+
+        if [type] == "cloud-server-stats" {
+			mutate {
+				add_field => { "server" => "d81fdd13-ce5d-4033-980b-1a2c6139cc73" }
+			}
+			
+			ruby {
+				code => 'event.set("[pct-mem-used]",
+								1-event.get("[memory-available]").to_d/event.get("[memory-actual]").to_d )'
+			}
+        }
+		
+		if [type] == "os-hypervisors-stats" {
+			ruby {
+				 code => 'event.set("[pct_used_disk_gb]",
+								event.get("[local_gb_used]").to_d/event.get("[local_gb]").to_d );
+						event.set("[pct_free_disk_gb]",
+								1-event.get("[pct_used_disk_gb]"));
+						event.set("[pct_memory_mb_used]",
+								event.get("[memory_mb_used]").to_d/event.get("[memory_mb]").to_d );
+						event.set("[pct_memory_mb_free]",
+								1-event.get("[pct_memory_mb_used]"));
+						event.set("[pct_vcpus_used]",
+								event.get("[vcpus_used]").to_d/event.get("[vcpus]").to_d );
+						event.set("[pct_vcpus_free]",
+								1-event.get("[pct_vcpus_used]"));' 
+			}
+		}
+
+}
+
+output {
+        if [type] == "os-hypervisors-stats" {
+                stdout { codec => rubydebug }
+        }
+
+		if [type] == "cloud-server-stats" {
+			elasticsearch {
+				"codec"         => "json_lines"
+				"user"          => "elastic"
+				"password"      => "Elk_2017"
+				"hosts"         => [ "http://claroprod974:9200", "http://claroprod975:9200", "http://claroprod976:9200" ]
+				#"password"      => "CLA40T3S7"
+				#"hosts"         => [ "https://10.38.97.29:9200" ]
+				#"cacert"       => "/etc/logstash/cert/ca.crt"
+				"index"         => "cloud-server-stats-%{+YYYYMM}"
+				"document_id"   => "%{server}-%{@timestamp}"
+			}
+		}
+		
+		if [type] == "os-hypervisors-stats" {
+			elasticsearch {
+				"codec"         => "json_lines"
+				"user"          => "elastic"
+				"password"      => "Elk_2017"
+				"hosts"         => [ "http://claroprod974:9200", "http://claroprod975:9200", "http://claroprod976:9200" ]
+				#"password"      => "CLA40T3S7"
+				#"hosts"         => [ "https://10.38.97.29:9200" ]
+				#"cacert"       => "/etc/logstash/cert/ca.crt"
+				"index"         => "cloud-os-hypervisors-stats-%{+YYYYMM}"
+				"document_id"   => "hypervisor-stats-%{@timestamp}"
+			}
+		}
+}
+
+
